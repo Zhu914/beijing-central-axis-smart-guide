@@ -1,0 +1,31 @@
+{
+    "name": "beijing-central-axis-smart-guide",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "deploy": "gh-pages -d dist -b gh-pages"
+    },
+    "dependencies": {
+        "chart.js": "^4.4.1",
+        "framer-motion": "^11.0.3",
+        "leaflet": "^1.9.4",
+        "react": "^18.2.0",
+        "react-chartjs-2": "^5.2.0",
+        "react-dom": "^18.2.0",
+        "react-leaflet": "^4.2.1",
+        "react-router-dom": "^6.26.1"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.15",
+        "@types/react-dom": "^18.2.7",
+        "@vitejs/plugin-react": "^4.0.3",
+        "autoprefixer": "^10.4.19",
+        "gh-pages": "^6.3.0",
+        "postcss": "^8.4.38",
+        "tailwindcss": "^3.4.3",
+        "vite": "^4.4.5"
+    }
+}
