@@ -1,12 +1,15 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
+const BASE = import.meta.env.BASE_URL;
+
 // 各景点内部游览路线数据
 const spotRoutes = {
   '故宫': {
     title: '故宫博物院 · 内部游览路线',
     route: '午门 → 太和殿 → 中和殿 → 保和殿 → 乾清宫 → 交泰殿 → 坤宁宫 → 御花园 → 神武门',
     duration: '2.5 - 3.5 小时',
+    image: `${BASE}assets/image81.png`,
     areas: [
       { name: '御花园', level: '畅通', color: '#34D399' },
       { name: '太和殿广场', level: '较拥挤', color: '#FBBF24' },
@@ -24,6 +27,7 @@ const spotRoutes = {
     title: '天坛公园 · 内部游览路线',
     route: '南门 → 圜丘坛 → 皇穹宇 → 丹陛桥 → 祈年殿 → 皇乾殿 → 斋宫 → 神乐署 → 东门',
     duration: '1.5 - 2.5 小时',
+    image: `${BASE}assets/image19.jpeg`,
     areas: [
       { name: '祈年殿区域', level: '较拥挤', color: '#FBBF24' },
       { name: '圜丘坛', level: '畅通', color: '#34D399' },
@@ -41,6 +45,7 @@ const spotRoutes = {
     title: '景山公园 · 内部游览路线',
     route: '南门 → 绮望楼 → 万春亭 → 观妙亭 → 辑芳亭 → 寿皇殿 → 西门',
     duration: '1 - 1.5 小时',
+    image: `${BASE}assets/image85.png`,
     areas: [
       { name: '万春亭', level: '较拥挤', color: '#FBBF24' },
       { name: '寿皇殿', level: '畅通', color: '#34D399' },
@@ -57,6 +62,7 @@ const spotRoutes = {
     title: '钟鼓楼 · 内部游览路线',
     route: '鼓楼 → 钟楼 → 钟鼓楼广场 → 烟袋斜街 → 什刹海',
     duration: '1 - 2 小时',
+    image: `${BASE}assets/image86.png`,
     areas: [
       { name: '鼓楼', level: '畅通', color: '#34D399' },
       { name: '钟楼', level: '畅通', color: '#34D399' },
@@ -72,6 +78,7 @@ const spotRoutes = {
     title: '永定门 · 内部游览路线',
     route: '永定门城楼 → 永定门公园 → 中轴线南段 → 燕墩',
     duration: '0.5 - 1 小时',
+    image: `${BASE}assets/image87.png`,
     areas: [
       { name: '城楼区域', level: '畅通', color: '#34D399' },
       { name: '公园步道', level: '畅通', color: '#34D399' },
@@ -97,6 +104,18 @@ function SpotDetail({ spotName, crowdData }) {
       <h3 className="text-2xl font-calligraphy text-axis-accentRed mb-4">
         🚶 {routeData.title}
       </h3>
+
+      {/* 景点图片 */}
+      {routeData.image && (
+        <div className="mb-4 rounded-lg overflow-hidden shadow-md">
+          <img
+            src={routeData.image}
+            alt={routeData.title}
+            className="w-full h-auto max-h-64 object-cover"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
+      )}
 
       {/* 推荐路线 */}
       <div className="bg-axis-detailSub rounded-lg p-4 mb-4">

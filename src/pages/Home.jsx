@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { generateCrowdData, getTotalFlow } from '../components/CrowdSimulator';
 
+const BASE = import.meta.env.BASE_URL;
+
 function Home() {
   const [crowdData, setCrowdData] = useState([]);
   const [totalFlow, setTotalFlow] = useState(0);
@@ -96,6 +98,56 @@ function Home() {
             故宫 · 天坛 · 景山 · 钟鼓楼 · 永定门
           </p>
         </a>
+      </div>
+
+      {/* 产品截图展示 */}
+      <div className="bg-axis-sub rounded-lg shadow-lg p-6">
+        <h3 className="text-2xl font-calligraphy text-axis-accentRed mb-4 text-center">
+          📱 产品界面展示
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-axis-detailSub rounded-lg p-4 shadow text-center">
+            <img
+              src={`${BASE}assets/image69.png`}
+              alt="全域客流热力图"
+              className="w-full h-auto rounded-lg mb-3"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <p className="text-axis-accentBlue text-sm font-semibold">全域客流热力图展示</p>
+          </div>
+          <div className="bg-axis-detailSub rounded-lg p-4 shadow text-center">
+            <img
+              src={`${BASE}assets/image70.png`}
+              alt="推荐游览时段"
+              className="w-full h-auto rounded-lg mb-3"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <p className="text-axis-accentBlue text-sm font-semibold">推荐游览时段</p>
+          </div>
+          <div className="bg-axis-detailSub rounded-lg p-4 shadow text-center">
+            <img
+              src={`${BASE}assets/image72.png`}
+              alt="AI 智能路线规划"
+              className="w-full h-auto rounded-lg mb-3"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <p className="text-axis-accentBlue text-sm font-semibold">AI 智能路线规划</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 网页演示链接 */}
+      <div className="bg-gradient-to-r from-axis-accentRed to-axis-accentRed/80 rounded-lg shadow-lg p-8 text-center text-white">
+        <h3 className="text-2xl font-calligraphy mb-2">🌐 产品演示</h3>
+        <p className="opacity-90 mb-2">网页核心功能已完成，进入迭代优化阶段</p>
+        <div className="mt-4">
+          <img
+            src={`${BASE}assets/image75.png`}
+            alt="网页演示截图"
+            className="max-w-full rounded-lg shadow-md mx-auto"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
       </div>
     </motion.div>
   );

@@ -6,6 +6,8 @@ import { generateCrowdData, getTotalFlow, spots } from '../components/CrowdSimul
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
+const BASE = import.meta.env.BASE_URL;
+
 function DataDashboard() {
   const [crowdData, setCrowdData] = useState([]);
   const [totalFlow, setTotalFlow] = useState(0);
@@ -135,6 +137,42 @@ function DataDashboard() {
             </div>
           </motion.div>
         ))}
+      </div>
+
+      {/* 产品截图展示 */}
+      <div className="bg-axis-detailSub rounded-lg shadow-lg p-6">
+        <h3 className="text-2xl font-calligraphy text-axis-accentBlue mb-4 text-center">
+          📱 产品界面截图
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white/60 rounded-lg p-3 shadow text-center">
+            <img
+              src={`${BASE}assets/image69.png`}
+              alt="客流热力图"
+              className="w-full h-auto rounded-lg mb-2"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <p className="text-axis-accentBlue text-xs font-semibold">全域客流热力图</p>
+          </div>
+          <div className="bg-white/60 rounded-lg p-3 shadow text-center">
+            <img
+              src={`${BASE}assets/image70.png`}
+              alt="游览时段推荐"
+              className="w-full h-auto rounded-lg mb-2"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <p className="text-axis-accentBlue text-xs font-semibold">推荐游览时段</p>
+          </div>
+          <div className="bg-white/60 rounded-lg p-3 shadow text-center">
+            <img
+              src={`${BASE}assets/image72.png`}
+              alt="路线规划"
+              className="w-full h-auto rounded-lg mb-2"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <p className="text-axis-accentBlue text-xs font-semibold">AI 智能路线规划</p>
+          </div>
+        </div>
       </div>
 
       {/* 图例与说明 */}

@@ -29,6 +29,8 @@ const pulseStyle = `
 }
 `;
 
+const BASE = import.meta.env.BASE_URL;
+
 function MapPage() {
   const [crowdData, setCrowdData] = useState([]);
   const [selectedSpot, setSelectedSpot] = useState(null);
@@ -186,6 +188,36 @@ function MapPage() {
       {selectedSpot && (
         <SpotDetail spotName={selectedSpot} crowdData={selectedSpotData} />
       )}
+
+      {/* 数据流图 */}
+      <div className="bg-axis-detailSub rounded-lg shadow-lg p-6">
+        <h3 className="text-2xl font-calligraphy text-axis-accentBlue mb-4 text-center">
+          📊 数据流图
+        </h3>
+        <div className="text-center">
+          <img
+            src={`${BASE}assets/image57.png`}
+            alt="数据流图"
+            className="max-w-full rounded-lg shadow-md mx-auto"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
+      </div>
+
+      {/* 技术架构图 */}
+      <div className="bg-axis-detailSub rounded-lg shadow-lg p-6">
+        <h3 className="text-2xl font-calligraphy text-axis-accentBlue mb-4 text-center">
+          🏗️ 技术架构图
+        </h3>
+        <div className="text-center">
+          <img
+            src={`${BASE}assets/image61.png`}
+            alt="技术架构图"
+            className="max-w-full rounded-lg shadow-md mx-auto"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
+      </div>
 
       {/* 客流概览卡片列表 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
