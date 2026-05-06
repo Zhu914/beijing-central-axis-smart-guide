@@ -1,0 +1,1 @@
+@tailwind base;@tailwind components;@tailwind utilities;body{@apply bg-axis-bg text-axis-accentBlue font-serif-sc;}#map{height:400px}
