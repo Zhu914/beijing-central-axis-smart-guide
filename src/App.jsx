@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet';
+import React, { useEffect, useState } from 'react';
+import L from 'leaflet';
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { axisSpots, crowdMeta, getRouteNames, getRoutePositions, guideSourceMap, routePlans } from './data/axisData';
 
@@ -17,6 +18,66 @@ const statCards = [
   ['错峰推荐窗口', '24h', '按时段动态更新'],
   ['服务体验优化', '4项', '离线/咨询/求助/预约'],
 ];
+
+const timeSlotLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
+
+function formatClock(date) {
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function getLiveLevel(value) {
+  if (value >= 72) return 'high';
+  if (value >= 44) return 'medium';
+  return 'low';
+}
+
+function getLiveSpotData(spot, now) {
+  const hourValue = now.getHours() + now.getMinutes() / 60;
+  const slotIndex = Math.max(0, Math.min(spot.trend.length - 1, Math.floor((hourValue - 8) / 2)));
+  const nextIndex = Math.min(spot.trend.length - 1, slotIndex + 1);
+  const progress = Math.max(0, Math.min(1, (hourValue - (8 + slotIndex * 2)) / 2));
+  const curveValue = spot.trend[slotIndex] + (spot.trend[nextIndex] - spot.trend[slotIndex]) * progress;
+  const minuteWave = Math.sin((now.getMinutes() + spot.id * 7) / 60 * Math.PI * 2) * 4;
+  const liveCrowd = Math.max(10, Math.min(98, Math.round(curveValue + minuteWave)));
+  const crowdLevel = getLiveLevel(liveCrowd);
+  const liveCount = Math.max(300, Math.round(spot.crowdCount * (0.42 + liveCrowd / 100)));
+  const recommendation = crowdLevel === 'high' ? '建议错峰' : crowdLevel === 'medium' ? '适中通行' : '当前舒适';
+
+  return {
+    ...spot,
+    crowdLevel,
+    liveCrowd,
+    liveCount,
+    liveTimeLabel: timeSlotLabels[slotIndex],
+    recommendation,
+  };
+}
+
+function getLiveSnapshot(now) {
+  const spots = axisSpots.map((spot) => getLiveSpotData(spot, now));
+  const avgCrowd = Math.round(spots.reduce((sum, spot) => sum + spot.liveCrowd, 0) / spots.length);
+  const highCount = spots.filter((spot) => spot.crowdLevel === 'high').length;
+  const mediumCount = spots.filter((spot) => spot.crowdLevel === 'medium').length;
+  const lowCount = spots.filter((spot) => spot.crowdLevel === 'low').length;
+  const totalCount = spots.reduce((sum, spot) => sum + spot.liveCount, 0);
+  const updatedAt = formatClock(now);
+
+  return {
+    spots,
+    updatedAt,
+    avgCrowd,
+    highCount,
+    mediumCount,
+    lowCount,
+    totalCount,
+    statCards: [
+      [statCards[0][0], `${spots.length}处`, `实时更新 ${updatedAt}`],
+      [statCards[1][0], `${highCount + mediumCount}处`, '按当前拥挤度联动'],
+      [statCards[2][0], `${lowCount}处`, '当前舒适窗口'],
+      [statCards[3][0], `${Math.round(totalCount / 1000)}k`, '在线客流估算'],
+    ],
+  };
+}
 
 const platformHighlights = [
   ['实时查', '全域热力与景点详情同步更新，帮助游客快速判断当前游览状态。'],
@@ -264,8 +325,8 @@ function SideNav({ activeTab, onChange }) {
   );
 }
 
-function ExplorePanel({ search, setSearch, setSelectedSpot }) {
-  const filtered = axisSpots.filter((spot) => spot.name.includes(search));
+function ExplorePanel({ search, setSearch, setSelectedSpot, liveSnapshot }) {
+  const filtered = liveSnapshot.spots.filter((spot) => spot.name.includes(search));
 
   return (
     <PanelShell title="北京中轴线" kicker="Smart Guide">
@@ -274,8 +335,13 @@ function ExplorePanel({ search, setSearch, setSelectedSpot }) {
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="你要去哪儿" />
       </div>
 
+      <div className="live-strip">
+        <span>实时 {liveSnapshot.updatedAt}</span>
+        <b>全域承载率 {liveSnapshot.avgCrowd}%</b>
+      </div>
+
       <div className="mt-5 grid grid-cols-2 gap-3">
-        {statCards.map(([title, value, desc]) => (
+        {liveSnapshot.statCards.map(([title, value, desc]) => (
           <article key={title} className="metric-card">
             <span>{title}</span>
             <strong>{value}</strong>
@@ -305,7 +371,7 @@ function ExplorePanel({ search, setSearch, setSelectedSpot }) {
               <button key={spot.id} type="button" onClick={() => setSelectedSpot(spot)} className="spot-row">
                 <span>
                   <b>{spot.name}</b>
-                  <small>{spot.description}</small>
+                  <small>{spot.recommendation} · 实时客流 {spot.liveCount.toLocaleString('zh-CN')}人</small>
                 </span>
                 <i style={{ color: meta.color, background: `${meta.color}1f` }}>{meta.text}</i>
               </button>
@@ -518,7 +584,17 @@ function UserPanel({ seniorMode, setSeniorMode, tags, setTags }) {
   );
 }
 
-function BeijingMapView({ activePlan, heatEnabled, setSelectedSpot }) {
+function createPinIcon(level) {
+  return L.divIcon({
+    className: 'live-pin-wrapper',
+    html: `<span class="live-pin live-pin-${level}"><i></i></span>`,
+    iconSize: [34, 46],
+    iconAnchor: [17, 42],
+    popupAnchor: [0, -38],
+  });
+}
+
+function BeijingMapView({ activePlan, heatEnabled, setSelectedSpot, liveSnapshot }) {
   const routePositions = getRoutePositions(activePlan.path);
 
   return (
@@ -532,7 +608,7 @@ function BeijingMapView({ activePlan, heatEnabled, setSelectedSpot }) {
           positions={routePositions}
           pathOptions={{ color: '#8B0000', weight: 5, opacity: 0.78, lineCap: 'round' }}
         />
-        {axisSpots.map((spot) => {
+        {liveSnapshot.spots.map((spot) => {
           const meta = crowdMeta[spot.crowdLevel];
           const radius = spot.crowdLevel === 'high' ? 13 : spot.crowdLevel === 'medium' ? 10 : 8;
 
@@ -551,37 +627,31 @@ function BeijingMapView({ activePlan, heatEnabled, setSelectedSpot }) {
                   }}
                 />
               )}
-              <CircleMarker
-                center={spot.position}
-                radius={radius}
-                pathOptions={{
-                  color: '#ffffff',
-                  fillColor: meta.color,
-                  fillOpacity: 0.92,
-                  opacity: 1,
-                  weight: 2,
-                }}
+              <Marker
+                position={spot.position}
+                icon={createPinIcon(spot.crowdLevel)}
                 eventHandlers={{ click: () => setSelectedSpot(spot) }}
               >
                 <Popup>
                   <div className="map-popup">
                     <strong>{spot.name}</strong>
-                    <span>{meta.text} · {spot.crowdCount}</span>
+                    <span>{meta.text} · 实时客流 {spot.liveCount.toLocaleString('zh-CN')}人</span>
+                    <span>当前承载率：{spot.liveCrowd}% · {liveSnapshot.updatedAt}</span>
                     <span>推荐时段：{spot.bestTime}</span>
                     <button type="button" onClick={() => setSelectedSpot(spot)}>查看景点内页</button>
                   </div>
                 </Popup>
-              </CircleMarker>
+              </Marker>
             </React.Fragment>
           );
         })}
       </MapContainer>
-      <div className="map-caption">北京地图 · 中轴线实时调度图层</div>
+      <div className="map-caption">北京地图 · {liveSnapshot.updatedAt} 实时调度图层</div>
     </div>
   );
 }
 
-function AxisCanvas({ activeTab, selectedPlan, selectedSpot, setSelectedSpot, heatEnabled }) {
+function AxisCanvas({ activeTab, selectedPlan, selectedSpot, setSelectedSpot, heatEnabled, liveSnapshot }) {
   const [stageView, setStageView] = useState('map');
   const activePlan = routePlans.find((plan) => plan.id === selectedPlan) || routePlans[0];
   const routeNames = getRouteNames(activePlan.path);
@@ -602,7 +672,7 @@ function AxisCanvas({ activeTab, selectedPlan, selectedSpot, setSelectedSpot, he
       </div>
 
       {stageView === 'map' ? (
-        <BeijingMapView activePlan={activePlan} heatEnabled={heatEnabled} setSelectedSpot={setSelectedSpot} />
+        <BeijingMapView activePlan={activePlan} heatEnabled={heatEnabled} setSelectedSpot={setSelectedSpot} liveSnapshot={liveSnapshot} />
       ) : (
         <div className="axis-visual code-built">
           <AxisDiagram mode={mode} onSelectSpot={setSelectedSpot} />
@@ -685,7 +755,15 @@ function App() {
   const [selectedSpot, setSelectedSpot] = useState(null);
   const [heatEnabled, setHeatEnabled] = useState(true);
   const [seniorMode, setSeniorMode] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const [tags, setTags] = useState(['历史建筑', '文化遗产']);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const liveSnapshot = getLiveSnapshot(now);
 
   if (!started) return <Splash onStart={() => setStarted(true)} />;
 
@@ -693,7 +771,7 @@ function App() {
     <div className={`app-shell ${seniorMode ? 'senior-mode' : ''}`}>
       <SideNav activeTab={activeTab} onChange={setActiveTab} />
       <aside className="control-panel">
-        {activeTab === 'explore' && <ExplorePanel search={search} setSearch={setSearch} setSelectedSpot={setSelectedSpot} />}
+        {activeTab === 'explore' && <ExplorePanel search={search} setSearch={setSearch} setSelectedSpot={setSelectedSpot} liveSnapshot={liveSnapshot} />}
         {activeTab === 'routes' && <RoutesPanel selectedPlan={selectedPlan} setSelectedPlan={setSelectedPlan} />}
         {activeTab === 'heatmap' && <HeatPanel heatEnabled={heatEnabled} setHeatEnabled={setHeatEnabled} />}
         {activeTab === 'time' && <TimePanel />}
@@ -705,6 +783,7 @@ function App() {
         selectedSpot={selectedSpot}
         setSelectedSpot={setSelectedSpot}
         heatEnabled={heatEnabled}
+        liveSnapshot={liveSnapshot}
       />
     </div>
   );
