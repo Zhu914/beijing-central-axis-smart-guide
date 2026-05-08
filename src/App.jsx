@@ -517,16 +517,74 @@ function TimePanel() {
   );
 }
 
+const personalizedPlanRules = {
+  '2h': {
+    label: '\u0032\u5c0f\u65f6',
+    route: ['\u9f13\u697c', '\u949f\u9f13\u697c', '\u4ec0\u5239\u6d77\u5317\u6cbf'],
+    pace: '\u77ed\u65f6\u8f7b\u91cf\u6e38\u89c8\uff0c\u4f18\u5148\u9009\u62e9\u8ddd\u79bb\u8fd1\u3001\u6b65\u884c\u538b\u529b\u5c0f\u3001\u505c\u7559\u70b9\u96c6\u4e2d\u7684\u666f\u70b9\u3002',
+  },
+  'half-day': {
+    label: '\u534a\u65e5',
+    route: ['\u666f\u5c71', '\u6545\u5bab\u5317\u95e8', '\u4e07\u5b81\u6865', '\u949f\u9f13\u697c'],
+    pace: '\u534a\u65e5\u4e32\u8054\u4e2d\u8f74\u5317\u6bb5\uff0c\u4fdd\u7559\u89c2\u666f\u3001\u62cd\u7167\u4e0e\u4f11\u606f\u65f6\u95f4\u3002',
+  },
+  'full-day': {
+    label: '\u5168\u5929',
+    route: ['\u6c38\u5b9a\u95e8', '\u5929\u575b', '\u524d\u95e8', '\u6545\u5bab', '\u666f\u5c71', '\u949f\u9f13\u697c'],
+    pace: '\u5168\u5929\u8de8\u666f\u70b9\u8054\u52a8\uff0c\u9002\u5408\u5b8c\u6574\u4f53\u9a8c\u4e2d\u8f74\u7ebf\u5386\u53f2\u7a7a\u95f4\u3002',
+  },
+};
+
+const groupPlanRules = {
+  silver: {
+    label: '\u94f6\u53d1\u6e38\u5ba2',
+    focus: '\u5df2\u52a0\u5165\u9002\u8001\u4f11\u606f\u70b9\u3001\u9519\u5cf0\u65f6\u6bb5\u548c\u5728\u7ebf\u54a8\u8be2\u5165\u53e3\u3002',
+    avoid: '\u907f\u5f00\u957f\u8ddd\u79bb\u8fde\u7eed\u6b65\u884c\u4e0e\u5348\u540e\u9ad8\u5cf0\u3002',
+  },
+  family: {
+    label: '\u5bb6\u5ead\u6e38\u5ba2',
+    focus: '\u589e\u52a0\u4eb2\u5b50\u8bb2\u89e3\u3001\u536b\u751f\u95f4\u4e0e\u9910\u996e\u8865\u7ed9\u8282\u70b9\u3002',
+    avoid: '\u51cf\u5c11\u6392\u961f\u65f6\u95f4\uff0c\u4f18\u5148\u5b89\u6392\u5f00\u653e\u7a7a\u95f4\u3002',
+  },
+  student: {
+    label: '\u7814\u5b66\u56e2\u961f',
+    focus: '\u5f3a\u5316\u5386\u53f2\u8bb2\u89e3\u3001\u4efb\u52a1\u6253\u5361\u548c\u56e2\u961f\u96c6\u5408\u70b9\u3002',
+    avoid: '\u907f\u5f00\u72ed\u7a84\u901a\u9053\uff0c\u4fdd\u7559\u7edf\u4e00\u96c6\u5408\u65f6\u95f4\u3002',
+  },
+  culture: {
+    label: '\u6587\u5316\u6df1\u5ea6\u6e38\u5ba2',
+    focus: '\u589e\u52a0\u5efa\u7b51\u793c\u5236\u3001\u975e\u9057\u6587\u5316\u548c\u535a\u7269\u9986\u5f0f\u8bb2\u89e3\u8282\u70b9\u3002',
+    avoid: '\u51cf\u5c11\u6d45\u5c42\u6253\u5361\u70b9\uff0c\u5ef6\u957f\u91cd\u70b9\u666f\u70b9\u505c\u7559\u3002',
+  },
+};
+
+function getPersonalPlan(duration, group, tags) {
+  const durationRule = personalizedPlanRules[duration] || personalizedPlanRules['half-day'];
+  const groupRule = groupPlanRules[group] || groupPlanRules.silver;
+  const tagText = tags.length ? tags.slice(0, 3).join('\u3001') : '\u4e2d\u8f74\u6587\u5316';
+  const extraSpot = tags.some((tag) => tag.includes('\u5efa\u7b51') || tag.includes('\u6587\u5316')) ? '\u6545\u5bab' : tags.some((tag) => tag.includes('\u4eb2\u5b50')) ? '\u5929\u575b' : '\u666f\u5c71';
+  const route = Array.from(new Set([...durationRule.route, extraSpot]));
+
+  return {
+    title: `${groupRule.label}${durationRule.label}\u4e13\u5c5e\u65b9\u6848`,
+    route,
+    summary: `${route.join(' \u2192 ')}\uff0c\u56f4\u7ed5\u201c${tagText}\u201d\u504f\u597d\u751f\u6210\u3002${groupRule.focus}`,
+    advice: `${durationRule.pace}${groupRule.avoid}`,
+  };
+}
+
 function UserPanel({ seniorMode, setSeniorMode, tags, setTags }) {
   const [input, setInput] = useState('');
-  const [duration, setDuration] = useState('半日');
-  const [group, setGroup] = useState('家庭游客');
+  const [duration, setDuration] = useState('2h');
+  const [group, setGroup] = useState('silver');
 
   function addTag() {
     const value = input.trim();
     if (value && !tags.includes(value)) setTags([...tags, value]);
     setInput('');
   }
+
+  const personalPlan = getPersonalPlan(duration, group, tags);
 
   return (
     <PanelShell title="用户中心" kicker="Personal Center">
@@ -545,15 +603,15 @@ function UserPanel({ seniorMode, setSeniorMode, tags, setTags }) {
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <select value={duration} onChange={(event) => setDuration(event.target.value)}>
-            <option>2小时</option>
-            <option>半日</option>
-            <option>一日</option>
+            <option value="2h">{'\u0032\u5c0f\u65f6'}</option>
+            <option value="half-day">{'\u534a\u65e5'}</option>
+            <option value="full-day">{'\u5168\u5929'}</option>
           </select>
           <select value={group} onChange={(event) => setGroup(event.target.value)}>
-            <option>家庭游客</option>
-            <option>银发游客</option>
-            <option>学生团队</option>
-            <option>深度文化游客</option>
+            <option value="silver">{'\u94f6\u53d1\u6e38\u5ba2'}</option>
+            <option value="family">{'\u5bb6\u5ead\u6e38\u5ba2'}</option>
+            <option value="student">{'\u7814\u5b66\u56e2\u961f'}</option>
+            <option value="culture">{'\u6587\u5316\u6df1\u5ea6\u6e38\u5ba2'}</option>
           </select>
         </div>
         <div className="tag-input">
@@ -567,9 +625,15 @@ function UserPanel({ seniorMode, setSeniorMode, tags, setTags }) {
         </div>
       </section>
 
-      <section className="mt-5 panel-card">
-        <h3>{group}{duration}专属方案</h3>
-        <p className="mt-3 text-sm leading-7 text-[#8B0000]/75">故宫北门 → 景山 → 万宁桥 → 钟鼓楼，已加入适老休息点、错峰时段和在线咨询入口。</p>
+      <section className="mt-5 panel-card personal-plan-card">
+        <h3>{personalPlan.title}</h3>
+        <div className="personal-route">
+          {personalPlan.route.map((spot) => (
+            <span key={spot}>{spot}</span>
+          ))}
+        </div>
+        <p className="mt-3 text-sm leading-7 text-[#8B0000]/75">{personalPlan.summary}</p>
+        <small>{personalPlan.advice}</small>
       </section>
 
       <div className="mt-5 grid grid-cols-2 gap-3">

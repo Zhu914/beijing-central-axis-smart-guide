@@ -1125,6 +1125,38 @@ button {
   cursor: pointer;
 }
 
+.personal-plan-card {
+  display: grid;
+  gap: 10px;
+}
+
+.personal-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.personal-route span {
+  border: 1px solid rgba(139, 0, 0, 0.14);
+  border-radius: 999px;
+  background: rgba(211, 235, 242, 0.42);
+  color: var(--blue);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.personal-plan-card small {
+  display: block;
+  border-top: 1px dashed rgba(139, 0, 0, 0.16);
+  padding-top: 10px;
+  color: rgba(139, 0, 0, 0.66);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 .heat-pulse {
   position: absolute;
   border-radius: 999px;
