@@ -50,7 +50,7 @@ const axisNodes = [
 
 function PanelShell({ title, kicker, children }) {
   return (
-    <div className="panel-scroll h-full overflow-y-auto px-5 py-5">
+    <div className="panel-scroll control-panel-scroll h-full overflow-y-auto px-5 py-5">
       <div className="mb-5">
         <p className="text-[11px] uppercase tracking-[0.32em] text-[#8B0000]/45">{kicker}</p>
         <h2 className="mt-2 text-2xl font-bold text-[#8B0000]">{title}</h2>
@@ -582,7 +582,7 @@ function BeijingMapView({ activePlan, heatEnabled, setSelectedSpot }) {
 }
 
 function AxisCanvas({ activeTab, selectedPlan, selectedSpot, setSelectedSpot, heatEnabled }) {
-  const [stageView, setStageView] = useState('axis');
+  const [stageView, setStageView] = useState('map');
   const activePlan = routePlans.find((plan) => plan.id === selectedPlan) || routePlans[0];
   const routeNames = getRouteNames(activePlan.path);
   const mode = activeTab === 'routes' ? 'routes' : activeTab === 'time' ? 'time' : activeTab === 'heatmap' || heatEnabled ? 'heatmap' : 'default';

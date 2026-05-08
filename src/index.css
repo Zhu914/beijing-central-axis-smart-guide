@@ -274,15 +274,25 @@ button {
   position: relative;
   z-index: 30;
   min-width: 0;
+  min-height: 0;
   height: 100%;
+  overflow: hidden;
   border-right: 4px double rgba(139, 0, 0, 0.14);
   background: rgba(251, 236, 222, 0.94);
   box-shadow: 18px 0 48px rgba(75, 22, 14, 0.12);
 }
 
 .panel-scroll {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(139, 0, 0, 0.35) transparent;
+}
+
+.control-panel-scroll {
+  padding-bottom: 44px;
 }
 
 .panel-scroll::-webkit-scrollbar {
@@ -1524,6 +1534,10 @@ button {
     border: 1px solid rgba(139, 0, 0, 0.14);
     border-radius: 8px;
     overflow: hidden;
+  }
+
+  .control-panel-scroll {
+    padding-bottom: 58px;
   }
 
   .axis-stage {
