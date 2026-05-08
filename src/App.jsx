@@ -1,26 +1,712 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import MapPage from './pages/MapPage';
-import DataDashboard from './pages/DataDashboard';
-import Header from './components/Header';
-import Footer from './components/Footer';
+import React, { useState } from 'react';
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { axisSpots, crowdMeta, getRouteNames, getRoutePositions, guideSourceMap, routePlans } from './data/axisData';
+
+const navItems = [
+  { id: 'explore', icon: '⌖', label: '探索' },
+  { id: 'routes', icon: '⌁', label: '路线' },
+  { id: 'heatmap', icon: '▤', label: '热力' },
+  { id: 'time', icon: '◷', label: '时间' },
+  { id: 'user', icon: '♙', label: '我的' },
+];
+
+const statCards = [
+  ['景点内精准管控', '19处', '核心节点实时监测'],
+  ['景点间智能联动', '3类', '跨景点路线策略'],
+  ['错峰推荐窗口', '24h', '按时段动态更新'],
+  ['服务体验优化', '4项', '离线/咨询/求助/预约'],
+];
+
+const platformHighlights = [
+  ['实时查', '全域热力与景点详情同步更新，帮助游客快速判断当前游览状态。'],
+  ['个性化', '结合游览时长、人群类型和兴趣标签，生成更贴合个人需求的方案。'],
+  ['优体验', '联动离线行程、在线咨询、语音求助和服务预约，提升全流程体验。'],
+];
+
+const serviceModules = [
+  ['适老模式', '字号放大、低强度路线、无台阶导览。'],
+  ['我的行程', '离线保存路线、预约、景点内动线。'],
+  ['服务预约', '讲解、轮椅、寄存、亲子陪同统一管理。'],
+  ['语音求助', '高峰拥挤或突发情况一键触达服务点。'],
+];
+
+const axisNodes = [
+  { name: '钟楼', x: 50, y: 8, type: 'tower' },
+  { name: '鼓楼', x: 50, y: 15, type: 'gate' },
+  { name: '万宁桥', x: 42, y: 24, type: 'bridge' },
+  { name: '景山', x: 55, y: 31, type: 'hill' },
+  { name: '故宫', x: 50, y: 43, type: 'palace', hot: true },
+  { name: '端门', x: 52, y: 52, type: 'gate' },
+  { name: '天安门', x: 50, y: 58, type: 'gate' },
+  { name: '外金水桥', x: 39, y: 62, type: 'bridge' },
+  { name: '英雄纪念碑', x: 52, y: 68, type: 'monument' },
+  { name: '正阳门', x: 50, y: 80, type: 'gate' },
+  { name: '永定门', x: 50, y: 92, type: 'gate' },
+  { name: '天坛', x: 74, y: 86, type: 'temple' },
+  { name: '社稷坛', x: 24, y: 54, type: 'palace' },
+  { name: '太庙', x: 76, y: 54, type: 'palace' },
+];
+
+function PanelShell({ title, kicker, children }) {
+  return (
+    <div className="panel-scroll h-full overflow-y-auto px-5 py-5">
+      <div className="mb-5">
+        <p className="text-[11px] uppercase tracking-[0.32em] text-[#8B0000]/45">{kicker}</p>
+        <h2 className="mt-2 text-2xl font-bold text-[#8B0000]">{title}</h2>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AxisDiagram({ mode = 'default', compact = false, onSelectSpot }) {
+  const showRoute = mode === 'routes';
+  const showTime = mode === 'time';
+  const showHeat = mode === 'heatmap' || mode === 'default';
+
+  return (
+    <div className={`coded-axis ${compact ? 'compact' : ''} ${showHeat ? 'with-heat' : ''}`}>
+      <div className="axis-spine" />
+      {showRoute && (
+        <svg className="route-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <polyline points="50,92 41,78 35,62 50,43 55,31 50,15" className="route-red" />
+          <polyline points="50,92 56,72 70,58 55,31 50,8" className="route-blue" />
+        </svg>
+      )}
+      {axisNodes.map((node) => {
+        const spot = axisSpots.find((item) => item.name.includes(node.name) || node.name.includes(item.name));
+        return (
+          <button
+            key={node.name}
+            type="button"
+            className={`axis-node ${node.type} ${node.hot ? 'is-hot' : ''}`}
+            style={{ left: `${node.x}%`, top: `${node.y}%` }}
+            onClick={() => spot && onSelectSpot?.(spot)}
+          >
+            {showHeat && <span className={`node-heat ${node.hot ? 'hot' : node.y > 50 ? 'warm' : 'cool'}`} />}
+            <span className="building-shape">
+              <i />
+              <b />
+            </span>
+            <span className="node-label">{node.name}</span>
+          </button>
+        );
+      })}
+      {showTime && (
+        <div className="time-bubble" style={{ left: '70%', top: '31%' }}>
+          <b>10:20进入</b>
+          <span>游览2-3小时</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PalaceGuideDiagram() {
+  const areas = [
+    ['午门', '太和门', '太和殿'],
+    ['中和殿', '保和殿', '乾清门'],
+    ['乾清宫', '交泰殿', '坤宁宫'],
+    ['御花园', '神武门', '服务点'],
+  ];
+
+  return (
+    <div className="palace-guide-code">
+      <div className="palace-axis-line" />
+      {areas.flatMap((row, rowIndex) =>
+        row.map((name, colIndex) => (
+          <span
+            key={name}
+            className={`palace-block ${colIndex === 1 ? 'main' : ''}`}
+            style={{
+              left: `${18 + colIndex * 30}%`,
+              top: `${12 + rowIndex * 20}%`,
+            }}
+          >
+            <i />
+            <b>{name}</b>
+          </span>
+        ))
+      )}
+      <svg className="palace-route" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <polyline points="50,88 50,70 50,50 50,32 50,14" />
+        <polyline points="50,50 78,52 78,72 50,70" />
+      </svg>
+    </div>
+  );
+}
+
+function TrendChart({ values = [] }) {
+  const points = values.length ? values : [20, 35, 58, 72, 64, 48, 30];
+  const step = 310 / (points.length - 1);
+  const coords = points.map((value, index) => {
+    const x = 30 + index * step;
+    const y = 170 - (Math.min(100, Math.max(0, value)) / 100) * 138;
+    return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+  });
+  const line = coords.map(([x, y]) => `${x},${y}`).join(' ');
+  const area = `${line} 340,170 30,170`;
+
+  return (
+    <svg viewBox="0 0 360 190" aria-label="实时人流趋势图">
+      <path d="M28 32H340M28 78H340M28 124H340M28 170H340" className="grid-line" />
+      <polygon points={area} className="trend-area-code" />
+      <polyline points={line} className="trend-line-code" />
+      {coords.map(([x, y], index) => (
+        <circle key={`${x}-${y}`} cx={x} cy={y} r={index === coords.length - 1 ? 5 : 3.5} className="trend-dot" />
+      ))}
+      <text x="28" y="186">08:00</text>
+      <text x="128" y="186">12:00</text>
+      <text x="230" y="186">16:00</text>
+      <text x="304" y="186">20:00</text>
+    </svg>
+  );
+}
+
+function GuideDiagram({ spot }) {
+  const source = guideSourceMap[spot.guideType] || guideSourceMap.axis;
+  const route = spot.internalRoute || [];
+
+  return (
+    <div className={`guide-map-code guide-map-${spot.guideType || 'axis'}`}>
+      <div className="guide-map-bg" />
+      <svg className="guide-route-code" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {spot.guideType === 'tiantan' && <polyline points="52,10 52,30 52,50 52,72 52,90" />}
+        {spot.guideType === 'jingshan' && <polyline points="50,88 42,70 50,52 58,34 50,14" />}
+        {spot.guideType === 'bell' && <polyline points="50,78 50,52 50,28" />}
+        {spot.guideType === 'palace' && (
+          <>
+            <polyline points="50,90 50,70 50,50 50,30 50,10" />
+            <polyline points="50,50 76,54 76,74 50,70" />
+          </>
+        )}
+        {(!spot.guideType || spot.guideType === 'axis') && <polyline points="50,90 48,68 52,48 50,28 50,10" />}
+      </svg>
+      {route.map((name, index) => {
+        const count = Math.max(1, route.length - 1);
+        const y = 88 - (index / count) * 76;
+        const xOffset = spot.guideType === 'jingshan' ? (index % 2 ? -9 : 9) : spot.guideType === 'tiantan' ? (index % 2 ? 7 : -7) : 0;
+        return (
+          <span key={name} className="guide-node-code" style={{ left: `${50 + xOffset}%`, top: `${y}%` }}>
+            <i />
+            <b>{name}</b>
+          </span>
+        );
+      })}
+      <a className="guide-source-link" href={source.url} target="_blank" rel="noreferrer">
+        参考：{source.title}
+      </a>
+      <p className="guide-source-note">{source.note}</p>
+    </div>
+  );
+}
+
+function Splash({ onStart }) {
+  return (
+    <div className="splash-shell min-h-screen bg-paper text-[#8B0000]">
+      <div className="splash-grid">
+        <section className="splash-copy">
+          <div className="seal-mark">京</div>
+          <p className="mb-4 text-sm tracking-[0.45em] text-[#8B0000]/55">BEIJING CENTRAL AXIS</p>
+          <h1 className="font-calligraphy text-6xl leading-tight md:text-8xl">中轴智调</h1>
+          <p className="mt-4 max-w-2xl text-xl leading-9 text-[#6f1f18]">
+            通过数字化技术与智能算法，构建“景点内精准管控 + 景点间智能联动”的北京中轴线景点客流智调平台。
+          </p>
+          <div className="mt-8 grid max-w-3xl grid-cols-1 gap-3 md:grid-cols-3">
+            {platformHighlights.map(([title, text]) => (
+              <article key={title} className="intro-card">
+                <strong>{title}</strong>
+                <span>{text}</span>
+              </article>
+            ))}
+          </div>
+          <button type="button" onClick={onStart} className="launch-button mt-10">
+            进入智调平台
+          </button>
+        </section>
+        <section className="phone-stage" aria-label="代码构建的中轴线示意">
+          <div className="phone-frame generated">
+            <div className="phone-search">⌕ 你要去哪儿</div>
+            <AxisDiagram compact />
+            <div className="phone-tabs">
+              <b>推荐路线</b>
+              <b>热力图</b>
+              <b>推荐游览时间</b>
+              <b>用户</b>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function SideNav({ activeTab, onChange }) {
+  return (
+    <nav className="side-nav">
+      <div className="nav-seal">京</div>
+      <div className="nav-stack">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onChange(item.id)}
+            className={`nav-button ${activeTab === item.id ? 'active' : ''}`}
+            title={item.label}
+          >
+            <span className="nav-icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+function ExplorePanel({ search, setSearch, setSelectedSpot }) {
+  const filtered = axisSpots.filter((spot) => spot.name.includes(search));
+
+  return (
+    <PanelShell title="北京中轴线" kicker="Smart Guide">
+      <div className="search-box">
+        <span>⌕</span>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="你要去哪儿" />
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        {statCards.map(([title, value, desc]) => (
+          <article key={title} className="metric-card">
+            <span>{title}</span>
+            <strong>{value}</strong>
+            <small>{desc}</small>
+          </article>
+        ))}
+      </div>
+
+      <section className="mt-5 panel-card">
+        <h3>核心服务</h3>
+        <div className="mt-3 space-y-3">
+          {platformHighlights.map(([title, text]) => (
+            <div key={title} className="pain-row">
+              <strong>{title}</strong>
+              <span>{text}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-5 panel-card">
+        <h3>景点列表</h3>
+        <div className="mt-3 max-h-[340px] space-y-2 overflow-y-auto pr-1 panel-scroll">
+          {filtered.map((spot) => {
+            const meta = crowdMeta[spot.crowdLevel];
+            return (
+              <button key={spot.id} type="button" onClick={() => setSelectedSpot(spot)} className="spot-row">
+                <span>
+                  <b>{spot.name}</b>
+                  <small>{spot.description}</small>
+                </span>
+                <i style={{ color: meta.color, background: `${meta.color}1f` }}>{meta.text}</i>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </PanelShell>
+  );
+}
+
+function RoutesPanel({ selectedPlan, setSelectedPlan }) {
+  return (
+    <PanelShell title="智能路线推荐" kicker="AI Route">
+      <section className="panel-card">
+        <h3>推荐策略</h3>
+        <div className="mt-4 space-y-3">
+          {routePlans.map((plan) => (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => setSelectedPlan(plan.id)}
+              className={`route-option ${selectedPlan === plan.id ? 'active' : ''}`}
+            >
+              <span>
+                <b>{plan.title}</b>
+                <small>{plan.time} | {plan.audience}</small>
+              </span>
+              <em>{plan.path.length}站</em>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-5 panel-card">
+        <h3>当前路线</h3>
+        {routePlans.filter((plan) => plan.id === selectedPlan).map((plan) => (
+          <div key={plan.id} className="route-summary">
+            <p>{getRouteNames(plan.path)}</p>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+              <span><b>少排队</b><small>错峰入场</small></span>
+              <span><b>低拥堵</b><small>热力避让</small></span>
+              <span><b>可离线</b><small>行程缓存</small></span>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="mt-5 panel-card">
+        <h3>跨景点衔接</h3>
+        <p className="mt-2 text-sm leading-7 text-[#8B0000]/70">
+          系统根据景点实时承载率、开放时间和游客偏好，动态调整景点间顺序，并提示公共交通、步行、骑行的预计耗时。
+        </p>
+      </section>
+    </PanelShell>
+  );
+}
+
+function HeatPanel({ heatEnabled, setHeatEnabled }) {
+  return (
+    <PanelShell title="实时热力监测" kicker="Crowd Heat">
+      <section className="panel-card">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3>地图热力叠加层</h3>
+            <p className="mt-2 text-sm text-[#8B0000]/60">开启后将在右侧地图直接显示各景点拥挤程度。</p>
+          </div>
+          <button type="button" onClick={() => setHeatEnabled(!heatEnabled)} className={`switch ${heatEnabled ? 'on' : ''}`}>
+            <span />
+          </button>
+        </div>
+      </section>
+
+      <section className="mt-5 panel-card">
+        <h3>全区人流趋势（24h）</h3>
+        <div className="trend-chart">
+          <svg viewBox="0 0 360 190" role="img" aria-label="全区人流趋势">
+            <defs>
+              <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="#8B0000" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#8B0000" stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+            <path className="grid-line" d="M28 28H340M28 72H340M28 116H340M28 160H340" />
+            <path className="trend-fill" d="M30 160 C72 136 76 46 132 42 C184 38 218 82 258 104 C302 128 326 142 340 160 L30 160Z" />
+            <path className="trend-line" d="M30 160 C72 136 76 46 132 42 C184 38 218 82 258 104 C302 128 326 142 340 160" />
+            <path className="trend-dash" d="M30 148 C72 120 82 56 136 50 C186 44 224 72 264 96 C304 120 322 130 340 150" />
+            <text x="42" y="184">08:00</text><text x="144" y="184">12:00</text><text x="246" y="184">16:00</text><text x="316" y="184">20:00</text>
+          </svg>
+        </div>
+      </section>
+
+      <section className="mt-5 panel-card">
+        <h3>区域预警</h3>
+        <div className="mt-3 space-y-3">
+          {axisSpots.filter((spot) => spot.crowdLevel !== 'low').slice(0, 5).map((spot) => {
+            const meta = crowdMeta[spot.crowdLevel];
+            return (
+              <div key={spot.id} className="warning-row">
+                <span>{spot.name}</span>
+                <b style={{ color: meta.color }}>{meta.text}</b>
+                <i><em style={{ width: meta.bar, background: meta.color }} /></i>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </PanelShell>
+  );
+}
+
+function TimePanel() {
+  return (
+    <PanelShell title="推荐游览时间" kicker="Time Advice">
+      <section className="panel-card">
+        <h3>分时段入园建议</h3>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {['08:00-10:00 推荐', '10:00-12:00 较挤', '12:00-14:00 较挤', '14:00-16:00 较挤'].map((time, index) => (
+            <div key={time} className={`time-chip ${index === 0 ? 'primary' : ''}`}>{time}</div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-5 panel-card">
+        <h3>重点景点建议</h3>
+        <div className="mt-3 space-y-3">
+          {axisSpots.slice(7, 14).map((spot) => (
+            <div key={spot.id} className="time-row">
+              <span>{spot.name}</span>
+              <b>{spot.bestTime}</b>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-5 panel-card">
+        <h3>调度逻辑</h3>
+        <p className="mt-2 text-sm leading-7 text-[#8B0000]/70">
+          推荐结果综合实时客流、景区开放时间、路线距离和游客偏好，在高峰区间主动推荐错峰进入或替代节点。
+        </p>
+      </section>
+    </PanelShell>
+  );
+}
+
+function UserPanel({ seniorMode, setSeniorMode, tags, setTags }) {
+  const [input, setInput] = useState('');
+  const [duration, setDuration] = useState('半日');
+  const [group, setGroup] = useState('家庭游客');
+
+  function addTag() {
+    const value = input.trim();
+    if (value && !tags.includes(value)) setTags([...tags, value]);
+    setInput('');
+  }
+
+  return (
+    <PanelShell title="用户中心" kicker="Personal Center">
+      <section className="user-hero">
+        <div className="avatar">游</div>
+        <span>
+          <b>游客用户</b>
+          <small>个性化方案已生成</small>
+        </span>
+      </section>
+
+      <section className="mt-5 panel-card">
+        <div className="flex items-center justify-between">
+          <h3>个性化设置</h3>
+          <button type="button" onClick={() => setSeniorMode(!seniorMode)} className={`switch ${seniorMode ? 'on' : ''}`}><span /></button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <select value={duration} onChange={(event) => setDuration(event.target.value)}>
+            <option>2小时</option>
+            <option>半日</option>
+            <option>一日</option>
+          </select>
+          <select value={group} onChange={(event) => setGroup(event.target.value)}>
+            <option>家庭游客</option>
+            <option>银发游客</option>
+            <option>学生团队</option>
+            <option>深度文化游客</option>
+          </select>
+        </div>
+        <div className="tag-input">
+          <input value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && addTag()} placeholder="添加兴趣标签" />
+          <button type="button" onClick={addTag}>添加</button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <button key={tag} type="button" onClick={() => setTags(tags.filter((item) => item !== tag))} className="tag-pill">{tag} ×</button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-5 panel-card">
+        <h3>{group}{duration}专属方案</h3>
+        <p className="mt-3 text-sm leading-7 text-[#8B0000]/75">故宫北门 → 景山 → 万宁桥 → 钟鼓楼，已加入适老休息点、错峰时段和在线咨询入口。</p>
+      </section>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        {serviceModules.map(([title, text]) => (
+          <article key={title} className="service-card">
+            <b>{title}</b>
+            <span>{text}</span>
+          </article>
+        ))}
+      </div>
+    </PanelShell>
+  );
+}
+
+function BeijingMapView({ activePlan, heatEnabled, setSelectedSpot }) {
+  const routePositions = getRoutePositions(activePlan.path);
+
+  return (
+    <div className="beijing-map-shell">
+      <MapContainer center={[39.914, 116.397]} zoom={12} scrollWheelZoom className="beijing-map">
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <Polyline
+          positions={routePositions}
+          pathOptions={{ color: '#8B0000', weight: 5, opacity: 0.78, lineCap: 'round' }}
+        />
+        {axisSpots.map((spot) => {
+          const meta = crowdMeta[spot.crowdLevel];
+          const radius = spot.crowdLevel === 'high' ? 13 : spot.crowdLevel === 'medium' ? 10 : 8;
+
+          return (
+            <React.Fragment key={spot.id}>
+              {heatEnabled && (
+                <CircleMarker
+                  center={spot.position}
+                  radius={radius * 2.5}
+                  pathOptions={{
+                    color: meta.color,
+                    fillColor: meta.color,
+                    fillOpacity: 0.14,
+                    opacity: 0.18,
+                    weight: 1,
+                  }}
+                />
+              )}
+              <CircleMarker
+                center={spot.position}
+                radius={radius}
+                pathOptions={{
+                  color: '#ffffff',
+                  fillColor: meta.color,
+                  fillOpacity: 0.92,
+                  opacity: 1,
+                  weight: 2,
+                }}
+                eventHandlers={{ click: () => setSelectedSpot(spot) }}
+              >
+                <Popup>
+                  <div className="map-popup">
+                    <strong>{spot.name}</strong>
+                    <span>{meta.text} · {spot.crowdCount}</span>
+                    <span>推荐时段：{spot.bestTime}</span>
+                    <button type="button" onClick={() => setSelectedSpot(spot)}>查看景点内页</button>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            </React.Fragment>
+          );
+        })}
+      </MapContainer>
+      <div className="map-caption">北京地图 · 中轴线实时调度图层</div>
+    </div>
+  );
+}
+
+function AxisCanvas({ activeTab, selectedPlan, selectedSpot, setSelectedSpot, heatEnabled }) {
+  const [stageView, setStageView] = useState('axis');
+  const activePlan = routePlans.find((plan) => plan.id === selectedPlan) || routePlans[0];
+  const routeNames = getRouteNames(activePlan.path);
+  const mode = activeTab === 'routes' ? 'routes' : activeTab === 'time' ? 'time' : activeTab === 'heatmap' || heatEnabled ? 'heatmap' : 'default';
+
+  return (
+    <main className="axis-stage">
+      <div className="axis-toolbar">
+        <span>{activeTab === 'heatmap' ? '拥挤程度热力图' : activeTab === 'routes' ? '智能路线推荐' : activeTab === 'time' ? '推荐游览时间' : '中轴线全域总览'}</span>
+        <strong>景点内精准管控 + 景点间智能联动</strong>
+      </div>
+
+      <div className="compass-mark">北</div>
+
+      <div className="stage-switch" aria-label="主视图切换">
+        <button type="button" className={stageView === 'axis' ? 'active' : ''} onClick={() => setStageView('axis')}>示意</button>
+        <button type="button" className={stageView === 'map' ? 'active' : ''} onClick={() => setStageView('map')}>地图</button>
+      </div>
+
+      {stageView === 'map' ? (
+        <BeijingMapView activePlan={activePlan} heatEnabled={heatEnabled} setSelectedSpot={setSelectedSpot} />
+      ) : (
+        <div className="axis-visual code-built">
+          <AxisDiagram mode={mode} onSelectSpot={setSelectedSpot} />
+        </div>
+      )}
+
+      <div className="floating-legend">
+        <b>景点位置</b>
+        <span><i className="green" />舒适</span>
+        <span><i className="yellow" />适中</span>
+        <span><i className="red" />拥挤</span>
+      </div>
+
+      <div className="route-ribbon">
+        <span>{activePlan.title}</span>
+        <p>{routeNames}</p>
+      </div>
+
+      {selectedSpot && <SpotDetail spot={selectedSpot} onBack={() => setSelectedSpot(null)} />}
+    </main>
+  );
+}
+
+function SpotDetail({ spot, onBack }) {
+  const meta = crowdMeta[spot.crowdLevel];
+
+  return (
+    <div className="detail-overlay">
+      <aside className="detail-side">
+        <button type="button" onClick={onBack} className="back-link">← 返回列表</button>
+        <div className="detail-placeholder">正在查看详情页<br />详情内容覆盖全屏</div>
+      </aside>
+      <section className="detail-main">
+        <div className="detail-header">
+          <button type="button" onClick={onBack}>←</button>
+          <h2>{spot.name === '午门' ? '故宫北门(神武门)' : spot.name}</h2>
+        </div>
+        <div className="detail-grid">
+          <article className="blue-card">
+            <h3>景点概况</h3>
+            <p>{spot.description}</p>
+            <div className="detail-tags">
+              <span>建议游玩: 1.5 - 2 小时</span>
+              <span>当前舒适度: {meta.text}</span>
+            </div>
+          </article>
+          <article className="blue-card">
+            <h3>分时段入园建议</h3>
+            <div className="time-grid">
+              <b>08:00-10:00 推荐</b>
+              <span>10:00-12:00 较挤</span>
+              <span>12:00-14:00 较挤</span>
+              <span>14:00-16:00 较挤</span>
+            </div>
+          </article>
+          <article className="blue-card">
+            <h3>实时人流趋势</h3>
+            <div className="mini-chart">
+              <TrendChart values={spot.trend} />
+            </div>
+          </article>
+          <article className="blue-card guide-card">
+            <h3>内部游览路线</h3>
+            <div className="guide-image code-guide">
+              <GuideDiagram spot={spot} />
+              <span>点击查看高清导览图</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function App() {
+  const [started, setStarted] = useState(false);
+  const [activeTab, setActiveTab] = useState('explore');
+  const [selectedPlan, setSelectedPlan] = useState('classic');
+  const [search, setSearch] = useState('');
+  const [selectedSpot, setSelectedSpot] = useState(null);
+  const [heatEnabled, setHeatEnabled] = useState(true);
+  const [seniorMode, setSeniorMode] = useState(false);
+  const [tags, setTags] = useState(['历史建筑', '文化遗产']);
+
+  if (!started) return <Splash onStart={() => setStarted(true)} />;
+
   return (
-    <Router>
-      <div className="min-h-screen bg-paper-texture bg-axis-bg flex flex-col">
-        <Header />
-        <main className="flex-grow container mx-auto p-4">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/map" element={<MapPage />} />
-            <Route path="/dashboard" element={<DataDashboard />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </Router>
+    <div className={`app-shell ${seniorMode ? 'senior-mode' : ''}`}>
+      <SideNav activeTab={activeTab} onChange={setActiveTab} />
+      <aside className="control-panel">
+        {activeTab === 'explore' && <ExplorePanel search={search} setSearch={setSearch} setSelectedSpot={setSelectedSpot} />}
+        {activeTab === 'routes' && <RoutesPanel selectedPlan={selectedPlan} setSelectedPlan={setSelectedPlan} />}
+        {activeTab === 'heatmap' && <HeatPanel heatEnabled={heatEnabled} setHeatEnabled={setHeatEnabled} />}
+        {activeTab === 'time' && <TimePanel />}
+        {activeTab === 'user' && <UserPanel seniorMode={seniorMode} setSeniorMode={setSeniorMode} tags={tags} setTags={setTags} />}
+      </aside>
+      <AxisCanvas
+        activeTab={activeTab}
+        selectedPlan={selectedPlan}
+        selectedSpot={selectedSpot}
+        setSelectedSpot={setSelectedSpot}
+        heatEnabled={heatEnabled}
+      />
+    </div>
   );
 }
 
