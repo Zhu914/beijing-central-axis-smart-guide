@@ -665,8 +665,9 @@ function BeijingMapView({ activePlan, heatEnabled, setSelectedSpot, liveSnapshot
     <div className="beijing-map-shell">
       <MapContainer center={[39.914, 116.397]} zoom={12} scrollWheelZoom className="beijing-map">
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution="Map data &copy; AutoNavi"
+          subdomains={['1', '2', '3', '4']}
+          url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}"
         />
         <Polyline
           positions={routePositions}
